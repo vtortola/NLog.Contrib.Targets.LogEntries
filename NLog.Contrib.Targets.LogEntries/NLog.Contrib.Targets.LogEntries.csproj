@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <PackageId>NLog.Contrib.Targets.LogEntries</PackageId>
+    <PackageVersion>1.0.0-pre-01</PackageVersion>
+    <Authors>vtortola</Authors>
+    <Description>Simple LogEntries NLog target that works on Linux. Supports SSL, is asynchronous and the token can be set in an environment variable as well.</Description>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageReleaseNotes></PackageReleaseNotes>
+    <Copyright>MIT Licence</Copyright>
+    <PackageTags>NLog LogEntries Docker Linux</PackageTags>
+    <Version>1.0.0-pre-01</Version>
+    <PackageProjectUrl>https://github.com/vtortola/NLog.Contrib.Targets.LogEntries</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/vtortola/NLog.Contrib.Targets.LogEntries</RepositoryUrl>
+    <RepositoryType>GitHub</RepositoryType>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageLicenseUrl>https://opensource.org/licenses/MIT</PackageLicenseUrl>
+    <PackageIconUrl>https://pbs.twimg.com/profile_images/525068492542709760/mNYt_Nwl_400x400.png</PackageIconUrl>
+    <NeutralLanguage />
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NLog.Extensions.Logging" Version="1.0.0-rtm-rc2" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="nlog.config" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="nlog.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="2.0.0" />
+    <PackageReference Include="NLog.Extensions.Logging" Version="1.0.0-rtm-rc2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\NLog.Contrib.Targets.LogEntries\NLog.Contrib.Targets.LogEntries.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update=".dockerignore">
+      <DependentUpon>Dockerfile</DependentUpon>
+    </None>
+  </ItemGroup>
+
+</Project>

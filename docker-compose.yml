@@ -1,0 +1,9 @@
+version: '3'
+
+services:
+  consolecore:
+    image: consolecore
+    build:
+      context: ./Tests/ConsoleCore
+      dockerfile: Dockerfile
+
