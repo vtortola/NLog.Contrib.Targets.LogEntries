@@ -5,8 +5,9 @@ Simple LogEntries NLog target that works on Linux. Uses SSL, multiplexes multipl
 The [official NLog target from Rapid7](https://github.com/rapid7/le_dotnet) uses an API that is not supported in Linux [(`IOControl`)](https://msdn.microsoft.com/en-us/library/system.net.sockets.socket.iocontrol(v=vs.110).aspx).
 
 ## Installation
-It is available in Nuget:
+It is available in Nuget: [NLog.Contrib.Targets.LogEntries](https://www.nuget.org/packages/NLog.Contrib.Targets.LogEntries/)
 ```
+dotnet add package NLog.Contrib.Targets.LogEntries --version 1.0.0-pre-01
 ```
 
 ## Usage
