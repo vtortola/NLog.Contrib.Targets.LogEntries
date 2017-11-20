@@ -3,14 +3,14 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <PackageId>NLog.Contrib.Targets.LogEntries</PackageId>
-    <PackageVersion>1.0.0-pre-01</PackageVersion>
+    <PackageVersion>1.0.0-pre-02</PackageVersion>
     <Authors>vtortola</Authors>
-    <Description>Simple LogEntries NLog target that works on Linux. Supports SSL, is asynchronous and the token can be set in an environment variable as well.</Description>
+    <Description>Simple LogEntries NLog target that works on Linux. Uses SSL, multiplexes multiple targets (even with different tokens) into the same connection, is asynchronous and the token can be set in an environment variable as well.</Description>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <PackageReleaseNotes></PackageReleaseNotes>
     <Copyright>MIT Licence</Copyright>
     <PackageTags>NLog LogEntries Docker Linux</PackageTags>
-    <Version>1.0.0-pre-01</Version>
+    <Version>1.0.0-pre-02</Version>
     <PackageProjectUrl>https://github.com/vtortola/NLog.Contrib.Targets.LogEntries</PackageProjectUrl>
     <RepositoryUrl>https://github.com/vtortola/NLog.Contrib.Targets.LogEntries</RepositoryUrl>
     <RepositoryType>GitHub</RepositoryType>

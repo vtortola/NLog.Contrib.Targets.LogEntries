@@ -8,6 +8,7 @@ namespace NLog.Contrib.Targets.LogEntries
     {
         static Lazy<LogEntriesConnectionManager> _instance
             = new Lazy<LogEntriesConnectionManager>(() => new LogEntriesConnectionManager(), true);
+
         public static LogEntriesConnectionManager Instance 
             => _instance.Value;
 
@@ -73,7 +74,7 @@ namespace NLog.Contrib.Targets.LogEntries
                 var retry = 0;
                 while (!SendEntry(datas))
                 {
-                    Thread.Sleep(Math.Max(50 * retry, 1000));
+                    Thread.Sleep(Math.Min(100 * retry, 1000));
                     unchecked
                     {
                         retry++;

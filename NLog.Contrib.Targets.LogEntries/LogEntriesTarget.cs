@@ -10,18 +10,14 @@ namespace NLog.Contrib.Targets.LogEntries
         public string Token { get; set; }
         public string TokenEnvVar { get; set; }
 
-        readonly LogEntriesConnectionManager _connection;
         byte[] _token;
-
-        public LogEntriesTarget()
-        {
-            _connection = LogEntriesConnectionManager.Instance;
-        }
+        LogEntriesConnectionManager _connection;
 
         protected override void InitializeTarget()
         {
             base.InitializeTarget();
             ConfigureToken();
+            _connection = LogEntriesConnectionManager.Instance;
         }
 
         private void ConfigureToken()
@@ -38,7 +34,7 @@ namespace NLog.Contrib.Targets.LogEntries
             {
                 throw new NLogConfigurationException("The API token to connect to LogEntries is mandatory.");
             }
-            _token = Encoding.UTF8.GetBytes(Token);
+            _token = Encoding.UTF8.GetBytes(Token);      
         }
 
         protected override void Write(LogEventInfo logEvent)
@@ -50,7 +46,7 @@ namespace NLog.Contrib.Targets.LogEntries
         protected override void CloseTarget()
         {
             base.CloseTarget();
-            _connection.Close();
+            _connection?.Close();
         }
 
         static string Format(string entry)

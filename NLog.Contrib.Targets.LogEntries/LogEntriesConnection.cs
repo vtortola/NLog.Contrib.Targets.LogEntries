@@ -44,14 +44,14 @@ namespace NLog.Contrib.Targets.LogEntries
 
         private bool IsConnected()
         {
-            if (_connecting.IsCompleted)
+            if (_connecting.Status == TaskStatus.RanToCompletion)
                 return true;
             if (_connecting.IsCanceled)
                 throw new TaskCanceledException();
             if (_connecting.IsFaulted)
                 throw _connecting.Exception;
 
-            return _connecting.IsCompleted || _connecting.Wait(2000);
+            return _connecting.Wait(2000);
         }
 
         public void Dispose()
