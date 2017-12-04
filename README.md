@@ -7,7 +7,7 @@ The [official NLog target from Rapid7](https://github.com/rapid7/le_dotnet) uses
 ## Installation
 It is available in Nuget: [NLog.Contrib.Targets.LogEntries](https://www.nuget.org/packages/NLog.Contrib.Targets.LogEntries/)
 ```
-dotnet add package NLog.Contrib.Targets.LogEntries --version 1.0.0-pre-01
+dotnet add package NLog.Contrib.Targets.LogEntries --version 1.0.0-pre-02
 ```
 
 ## Usage

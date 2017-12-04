@@ -50,8 +50,8 @@ namespace NLog.Contrib.Targets.LogEntries
         internal void Send(byte[][] datas)
         {
             if (!IsConnected())
-                throw new InvalidOperationException("Socket is not connected.");
-            
+                throw new InvalidOperationException("Unable to connect to LogEntries.");
+
             foreach (var data in datas)
                 _stream.Write(data, 0, data.Length);
         }

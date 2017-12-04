@@ -31,7 +31,10 @@ namespace NLog.Contrib.Targets.LogEntries
 
         public void Send(params byte[][] datas)
         {
-            _queue.Add(datas);
+            if (!_queue.IsAddingCompleted)
+            {
+                _queue.Add(datas);
+            }
         }
 
         public void Close()
@@ -74,7 +77,7 @@ namespace NLog.Contrib.Targets.LogEntries
                 var retry = 0;
                 while (!SendEntry(datas))
                 {
-                    Thread.Sleep(Math.Min(100 * retry, 1000));
+                    Thread.Sleep(Math.Min(Math.Max(0, 100 * retry), 2000));
                     unchecked
                     {
                         retry++;
@@ -99,8 +102,21 @@ namespace NLog.Contrib.Targets.LogEntries
 
         private void Reconnect()
         {
-            _connection?.Dispose();
-            _connection = new LogEntriesConnection();
+            var connection = _connection;
+            _connection = null;
+            connection?.Dispose();
+            while (_connection == null)
+            {
+                try
+                {
+                    _connection = new LogEntriesConnection();
+                }
+                catch(Exception)
+                {
+                    // why would this happen?
+                    Thread.Sleep(1000);
+                }
+            }
         }
     }
 }
