@@ -10,7 +10,7 @@
     <PackageReleaseNotes></PackageReleaseNotes>
     <Copyright>MIT Licence</Copyright>
     <PackageTags>NLog LogEntries Docker Linux</PackageTags>
-    <Version>1.0.0-pre-02</Version>
+    <Version>1.0.0-pre-03</Version>
     <PackageProjectUrl>https://github.com/vtortola/NLog.Contrib.Targets.LogEntries</PackageProjectUrl>
     <RepositoryUrl>https://github.com/vtortola/NLog.Contrib.Targets.LogEntries</RepositoryUrl>
     <RepositoryType>GitHub</RepositoryType>
@@ -18,10 +18,12 @@
     <PackageLicenseUrl>https://opensource.org/licenses/MIT</PackageLicenseUrl>
     <PackageIconUrl>https://pbs.twimg.com/profile_images/525068492542709760/mNYt_Nwl_400x400.png</PackageIconUrl>
     <NeutralLanguage />
+    <AssemblyVersion>1.0.0.3</AssemblyVersion>
+    <FileVersion>1.0.0.3</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="NLog.Extensions.Logging" Version="1.0.0-rtm-rc2" />
+    <PackageReference Include="NLog.Extensions.Logging" Version="1.0.0-rtm-rc4" />
   </ItemGroup>
 
 </Project>

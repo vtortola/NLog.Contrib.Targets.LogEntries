@@ -20,7 +20,7 @@ namespace NLog.Contrib.Targets.LogEntries
 
         private LogEntriesConnectionManager()
         {
-            _queue = new BlockingCollection<byte[][]>(new ConcurrentQueue<byte[][]>(), 10000);
+            _queue = new BlockingCollection<byte[][]>(new ConcurrentQueue<byte[][]>(), 100000);
             _thread = new Thread(new ThreadStart(SendEventsSafeLoop))
             {
                 IsBackground = true

@@ -1,5 +1,6 @@
 ﻿using NLog;
 using System;
+using System.Threading;
 
 namespace ConsoleClassic
 {
@@ -8,9 +9,13 @@ namespace ConsoleClassic
         static void Main(string[] args)
         {
             var logger = LogManager.GetCurrentClassLogger();
-            for (int i = 0; i < 10; i++)
+            var cancel = new CancellationTokenSource();
+            Console.CancelKeyPress += (o, e) => cancel.Cancel();
+            var counter = 0;
+            while(!cancel.IsCancellationRequested)
             {
-                logger.Info($"Classic {Guid.NewGuid()}  {Environment.OSVersion}");
+                logger.Info("BB " + counter++);
+                Thread.Sleep(1000);
             }
             Console.WriteLine("End");
         }

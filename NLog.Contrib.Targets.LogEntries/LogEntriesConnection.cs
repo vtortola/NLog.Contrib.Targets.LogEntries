@@ -30,14 +30,28 @@ namespace NLog.Contrib.Targets.LogEntries
 
         static void ConfigureSocket(TcpClient client)
         {
+            // no naggle algorithm
             client.NoDelay = true;
+
+            // When using a buffer, component buffers data but connection
+            // maybe already dead, so it would not be possible to retry the entry
+            // in case of exception.
+
+            // This will definitely reduce the troughput, but will detect 
+            // connection drops and will be able of retrying the entry...
+            // otherwise buffered data is lost :(
+            // Not sure this is the right thing to do though.
+            client.SendBufferSize = 0;
+
+            // Timeout for Socket.Send
+            client.SendTimeout = 400;
         }
 
         internal void Send(byte[][] datas)
         {
             if (!IsConnected())
-                throw new InvalidOperationException("Unable to connect.");
-
+                throw new InvalidOperationException("Socket is not connected.");
+            
             foreach (var data in datas)
                 _stream.Write(data, 0, data.Length);
         }
@@ -45,7 +59,7 @@ namespace NLog.Contrib.Targets.LogEntries
         private bool IsConnected()
         {
             if (_connecting.Status == TaskStatus.RanToCompletion)
-                return true;
+                return _socket.Connected;
             if (_connecting.IsCanceled)
                 throw new TaskCanceledException();
             if (_connecting.IsFaulted)
