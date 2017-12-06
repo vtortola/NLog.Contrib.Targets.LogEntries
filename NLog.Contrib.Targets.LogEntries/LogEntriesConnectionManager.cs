@@ -14,12 +14,15 @@ namespace NLog.Contrib.Targets.LogEntries
 
         readonly BlockingCollection<byte[][]> _queue;
         readonly Thread _thread;
+        readonly byte[] _buffer;
 
         LogEntriesConnection _connection;
+        int _bufferLength = 0;
         int _closed = 0;
-
+        
         private LogEntriesConnectionManager()
         {
+            _buffer = new byte[8192];
             _queue = new BlockingCollection<byte[][]>(new ConcurrentQueue<byte[][]>(), 100000);
             _thread = new Thread(new ThreadStart(SendEventsSafeLoop))
             {
@@ -43,6 +46,7 @@ namespace NLog.Contrib.Targets.LogEntries
             {
                 _queue.CompleteAdding();
                 _thread.Join();
+                SendBufferWithRetry();
                 _connection.Dispose();
             }
         }
@@ -74,23 +78,67 @@ namespace NLog.Contrib.Targets.LogEntries
         {
             foreach (var datas in _queue.GetConsumingEnumerable())
             {
-                var retry = 0;
-                while (!SendEntry(datas))
+                // empty buffer if no enough space available
+                if (_buffer.Length - _bufferLength < datas[0].Length + datas[1].Length)
                 {
-                    Thread.Sleep(Math.Min(Math.Max(0, 100 * retry), 2000));
-                    unchecked
+                    SendBufferWithRetry();
+                }
+
+                // very long log entry
+                if (_buffer.Length < datas[0].Length + datas[1].Length)
+                {  
+                    DoWithRetry(() => 
                     {
-                        retry++;
-                    }
+                        foreach (var data in datas)
+                            _connection.Send(data, data.Length);
+                    });
+                }
+                else
+                {
+                    Buffer(datas[0]);
+                    Buffer(datas[1]);
+                }
+
+                // if there are no pending items in the queue
+                // send buffer immediately
+                if(_bufferLength > 0 && _queue.Count == 0)
+                    SendBufferWithRetry();
+            }
+        }
+
+        private void SendBufferWithRetry()
+        {
+            if (_bufferLength == 0 )
+                return;
+
+            DoWithRetry(() => _connection.Send(_buffer, _bufferLength));
+            _bufferLength = 0;
+        }
+
+        private void DoWithRetry(Action action)
+        {
+            var retry = 0;
+            while (!DoWithReconnect(action))
+            {
+                Thread.Sleep(Math.Min(Math.Max(0, 100 * retry), 2000));
+                unchecked
+                {
+                    retry++;
                 }
             }
         }
 
-        private bool SendEntry(byte[][] datas)
+        private void Buffer(byte[] data)
+        {
+            Array.Copy(data, 0, _buffer, _bufferLength, data.Length);
+            _bufferLength += data.Length;
+        }
+
+        private bool DoWithReconnect(Action action)
         {
             try
             {
-                _connection.Send(datas);
+                action();
                 return true;
             }
             catch (Exception)

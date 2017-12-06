@@ -14,8 +14,8 @@ namespace ConsoleClassic
             var counter = 0;
             while(!cancel.IsCancellationRequested)
             {
-                logger.Info("BB " + counter++);
-                Thread.Sleep(1000);
+                logger.Info("DD " + counter++ + "".PadRight(30, '@'));
+                Thread.Sleep(10);
             }
             Console.WriteLine("End");
         }
