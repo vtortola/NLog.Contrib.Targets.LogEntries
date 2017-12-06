@@ -3,5 +3,5 @@ version: '3'
 services:
   consolecore:
     environment:
-      - LOGENTRIESA=5cbef60a-7ff6-4353-a150-c3392cb6c129
-      - LOGENTRIESB=5cbef60a-7ff6-4353-a150-c3392cb6c129
+      - LOGENTRIESA=
+      - LOGENTRIESB=
