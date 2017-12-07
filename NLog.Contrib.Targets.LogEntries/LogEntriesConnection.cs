@@ -28,21 +28,21 @@ namespace NLog.Contrib.Targets.LogEntries
                    });
         }
 
-        static void ConfigureSocket(TcpClient client)
+        static void ConfigureSocket(TcpClient socket)
         {
             // no naggle algorithm
-            client.NoDelay = true;
+            socket.NoDelay = true;
 
             // When using the internal buffer, component buffers the data but connection
             // maybe already dead, so it would not be possible to retry the entry
             // in case of exception.
-            client.SendBufferSize = 0;
+            socket.SendBufferSize = 0;
 
-            // Timeout for Socket.Send
-            client.SendTimeout = 400;
+            // Timeout for Socket.Send. 5 seconds because large entries takes much more time
+            socket.SendTimeout = 5000;
         }
 
-        internal void Send(byte[] data, int count)
+        public void Send(byte[] data, int count)
         {
             if (!IsConnected())
                 throw new InvalidOperationException("Unable to connect to LogEntries.");

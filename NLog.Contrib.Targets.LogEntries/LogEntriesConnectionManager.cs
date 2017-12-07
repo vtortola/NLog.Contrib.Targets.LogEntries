@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Text;
 using System.Threading;
 
 namespace NLog.Contrib.Targets.LogEntries
@@ -12,7 +13,7 @@ namespace NLog.Contrib.Targets.LogEntries
         public static LogEntriesConnectionManager Instance 
             => _instance.Value;
 
-        readonly BlockingCollection<byte[][]> _queue;
+        readonly BlockingCollection<Tuple<byte[], string>> _queue;
         readonly Thread _thread;
         readonly byte[] _buffer;
 
@@ -23,7 +24,7 @@ namespace NLog.Contrib.Targets.LogEntries
         private LogEntriesConnectionManager()
         {
             _buffer = new byte[8192];
-            _queue = new BlockingCollection<byte[][]>(new ConcurrentQueue<byte[][]>(), 100000);
+            _queue = new BlockingCollection<Tuple<byte[], string>>(new ConcurrentQueue<Tuple<byte[], string>>(), 100000);
             _thread = new Thread(new ThreadStart(SendEventsSafeLoop))
             {
                 IsBackground = true
@@ -32,11 +33,11 @@ namespace NLog.Contrib.Targets.LogEntries
             _thread.Start();
         }
 
-        public void Send(params byte[][] datas)
+        public void Send(byte[] token, string line)
         {
             if (!_queue.IsAddingCompleted)
             {
-                _queue.Add(datas);
+                _queue.Add(new Tuple<byte[], string>(token, line));
             }
         }
 
@@ -73,30 +74,38 @@ namespace NLog.Contrib.Targets.LogEntries
                 }
             }
         }
+        
+        static string Format(string entry)
+            => entry
+                .Replace("\r\n", "\u2028")
+                .Replace("\n", "\u2028");
 
         private void ConsumeAndSendEvents()
         {
             foreach (var datas in _queue.GetConsumingEnumerable())
             {
+                var entry = Encoding.UTF8.GetBytes(Format(datas.Item2) + "\n");
+                var entryLength = datas.Item1.Length + entry.Length;
+
                 // empty buffer if no enough space available
-                if (_buffer.Length - _bufferLength < datas[0].Length + datas[1].Length)
+                if (_buffer.Length - _bufferLength < entryLength)
                 {
                     SendBufferWithRetry();
                 }
 
-                // very long log entry
-                if (_buffer.Length < datas[0].Length + datas[1].Length)
+                // log entry bigger than buffer
+                if (_buffer.Length < entryLength)
                 {  
                     DoWithRetry(() => 
                     {
-                        foreach (var data in datas)
-                            _connection.Send(data, data.Length);
+                        _connection.Send(datas.Item1, datas.Item1.Length);
+                        _connection.Send(entry, entry.Length);
                     });
                 }
                 else
                 {
-                    Buffer(datas[0]);
-                    Buffer(datas[1]);
+                    Buffer(datas.Item1);
+                    Buffer(entry);
                 }
 
                 // if there are no pending items in the queue
@@ -120,10 +129,11 @@ namespace NLog.Contrib.Targets.LogEntries
             var retry = 0;
             while (!DoWithReconnect(action))
             {
-                Thread.Sleep(Math.Min(Math.Max(0, 100 * retry), 2000));
-                unchecked
+                Thread.Sleep(Math.Min(1000, 100 * retry));
+                retry++;
+                if (retry >= 20)
                 {
-                    retry++;
+                    return;
                 }
             }
         }
@@ -161,7 +171,6 @@ namespace NLog.Contrib.Targets.LogEntries
                 }
                 catch(Exception)
                 {
-                    // why would this happen?
                     Thread.Sleep(1000);
                 }
             }

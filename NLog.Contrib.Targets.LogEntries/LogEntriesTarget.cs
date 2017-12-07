@@ -39,8 +39,7 @@ namespace NLog.Contrib.Targets.LogEntries
 
         protected override void Write(LogEventInfo logEvent)
         {
-            var entry = Encoding.UTF8.GetBytes(Format(base.Layout.Render(logEvent)));
-            _connection.Send(_token, entry);
+            _connection.Send(_token, base.Layout.Render(logEvent));
         }
 
         protected override void CloseTarget()
@@ -48,10 +47,5 @@ namespace NLog.Contrib.Targets.LogEntries
             base.CloseTarget();
             _connection?.Close();
         }
-
-        static string Format(string entry)
-            => entry
-                .Replace("\r\n", "\u2028")
-                .Replace("\n", "\u2028") + '\n';
     }
 }
