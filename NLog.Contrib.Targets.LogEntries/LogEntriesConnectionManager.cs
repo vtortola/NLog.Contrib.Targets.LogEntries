@@ -16,6 +16,8 @@ namespace NLog.Contrib.Targets.LogEntries
         readonly BlockingCollection<Tuple<byte[], string>> _queue;
         readonly Thread _thread;
         readonly byte[] _buffer;
+        readonly char[] _charBuffer;
+        readonly Encoder _encoding;
 
         LogEntriesConnection _connection;
         int _bufferLength = 0;
@@ -24,7 +26,9 @@ namespace NLog.Contrib.Targets.LogEntries
         private LogEntriesConnectionManager()
         {
             _buffer = new byte[8192];
+            _charBuffer = new char[8192];
             _queue = new BlockingCollection<Tuple<byte[], string>>(new ConcurrentQueue<Tuple<byte[], string>>(), 100000);
+            _encoding = Encoding.UTF8.GetEncoder();
             _thread = new Thread(new ThreadStart(SendEventsSafeLoop))
             {
                 IsBackground = true
@@ -74,19 +78,64 @@ namespace NLog.Contrib.Targets.LogEntries
                 }
             }
         }
-        
-        static string Format(string entry)
-            => entry
-                .Replace("\r\n", "\u2028")
-                .Replace("\n", "\u2028");
+
+        static char[] _newLine = "\u2028".ToCharArray();
+
+        private int BufferChars(string line, int offset)
+        {
+            int count = 0;
+            var bufferPos = 0;
+            for (; offset < line.Length; offset++)
+            {
+                if (_charBuffer.Length == bufferPos)
+                    break;
+
+                if(line[offset] == '\n')
+                {
+                    if (_charBuffer.Length - _bufferLength < _newLine.Length)
+                        break;
+
+                    for (int i = 0; i < _newLine.Length; i++)
+                    {
+                        _charBuffer[bufferPos++] = _newLine[i];
+                    }
+                }
+                else if ( offset+1<line.Length && line[offset] == '\r' && line[offset+1] == '\n')
+                {
+                    if (_charBuffer.Length - _bufferLength < _newLine.Length)
+                        break;
+
+                    for (int i = 0; i < _newLine.Length; i++)
+                    {
+                        _charBuffer[bufferPos++] = _newLine[i];
+                    }
+                    offset++;
+                    count++;
+                }
+                count++;
+            }
+            return count;
+        }
 
         private void ConsumeAndSendEvents()
         {
             foreach (var datas in _queue.GetConsumingEnumerable())
             {
+                var encoded = 0;
+                while(encoded != datas.Item2.Length)
+                {
+                    encoded = BufferChars(datas.Item2, encoded);
+
+                    _encoding.Convert(_charBuffer, 0, encoded,  )
+
+                }
+
                 var entry = Encoding.UTF8.GetBytes(Format(datas.Item2) + "\n");
                 var entryLength = datas.Item1.Length + entry.Length;
 
+
+                
+                
                 // empty buffer if no enough space available
                 if (_buffer.Length - _bufferLength < entryLength)
                 {
