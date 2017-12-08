@@ -11,21 +11,14 @@ namespace NLog.Contrib.Targets.LogEntries
         const int _tokenTlsPort = 20000;
 
         readonly TcpClient _socket;
-        readonly Task _connecting;
-        volatile SslStream _stream;
+        readonly SslStream _stream;
 
         public LogEntriesConnection()
         {
-            _socket = new TcpClient();
+            _socket = new TcpClient(_url, _tokenTlsPort);
             ConfigureSocket(_socket);
-            _connecting =
-                _socket
-                   .ConnectAsync(_url, _tokenTlsPort)
-                   .ContinueWith(t =>
-                   {
-                       _stream = new SslStream(_socket.GetStream());
-                       _stream.AuthenticateAsClient(_url);
-                   });
+            _stream = new SslStream(_socket.GetStream());
+            _stream.AuthenticateAsClient(_url);
         }
 
         static void ConfigureSocket(TcpClient socket)
@@ -40,26 +33,15 @@ namespace NLog.Contrib.Targets.LogEntries
 
             // Timeout for Socket.Send. 5 seconds because large entries takes much more time
             socket.SendTimeout = 5000;
+
+            // keep alive
+            //http://tldp.org/HOWTO/TCP-Keepalive-HOWTO/usingkeepalive.html
+            socket.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
         }
 
         public void Send(byte[] data, int count)
         {
-            if (!IsConnected())
-                throw new InvalidOperationException("Unable to connect to LogEntries.");
-
             _stream.Write(data, 0, count);
-        }
-
-        private bool IsConnected()
-        {
-            if (_connecting.Status == TaskStatus.RanToCompletion)
-                return _socket.Connected;
-            if (_connecting.IsCanceled)
-                throw new TaskCanceledException();
-            if (_connecting.IsFaulted)
-                throw _connecting.Exception;
-
-            return _connecting.Wait(2000);
         }
 
         public void Dispose()
