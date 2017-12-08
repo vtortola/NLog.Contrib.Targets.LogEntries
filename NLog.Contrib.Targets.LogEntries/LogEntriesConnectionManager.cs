@@ -146,16 +146,23 @@ namespace NLog.Contrib.Targets.LogEntries
 
         private bool DoWithReconnect(Action action)
         {
+            var success = false;
             try
             {
-                action();
-                return true;
+                if (!_connection.IsIdleForTooLong)
+                {
+                    action();
+                    success = true;
+                }
             }
-            catch (Exception)
+            catch (Exception) { }
+
+            if(!success)
             {
                 Reconnect();
-                return false;
             }
+
+            return success;
         }
 
         private void Reconnect()
