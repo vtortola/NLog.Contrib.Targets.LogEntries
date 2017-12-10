@@ -92,7 +92,7 @@ namespace NLog.Contrib.Targets.LogEntries
                         _charBuffer[bufferPos++] = _newLineReplacement[i];
                     }
 
-                    if (offset + 1 < line.Length && line[offset] == '\r' && line[offset] == '\n')
+                    if (offset + 1 < line.Length && line[offset] == '\r' && line[offset+1] == '\n')
                     {
                         offset++;
                         count++;
