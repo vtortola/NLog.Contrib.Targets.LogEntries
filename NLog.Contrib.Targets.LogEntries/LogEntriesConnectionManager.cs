@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using System.Text;
 using System.Threading;
 
 namespace NLog.Contrib.Targets.LogEntries
 {
+    // Lazy singleton
     internal sealed class LogEntriesConnectionManager
     {
         static Lazy<LogEntriesConnectionManager> _instance
@@ -15,15 +15,12 @@ namespace NLog.Contrib.Targets.LogEntries
 
         readonly BlockingCollection<Tuple<byte[], string>> _queue;
         readonly Thread _thread;
-        readonly byte[] _buffer;
 
         LogEntriesConnection _connection;
-        int _bufferLength = 0;
         int _closed = 0;
         
         private LogEntriesConnectionManager()
         {
-            _buffer = new byte[8192];
             _queue = new BlockingCollection<Tuple<byte[], string>>(new ConcurrentQueue<Tuple<byte[], string>>(), 100000);
             _thread = new Thread(new ThreadStart(SendEventsSafeLoop))
             {
@@ -47,7 +44,6 @@ namespace NLog.Contrib.Targets.LogEntries
             {
                 _queue.CompleteAdding();
                 _thread.Join();
-                SendBufferWithRetry();
                 _connection.Dispose();
             }
         }
@@ -61,103 +57,58 @@ namespace NLog.Contrib.Targets.LogEntries
                     ConsumeAndSendEvents();
                     return;
                 }
-                catch (OperationCanceledException)
-                {
-                    return;
-                }
-                catch (ObjectDisposedException)
-                {
-                    return;
-                }
-                catch (Exception)
-                {
-                }
+                catch (OperationCanceledException) { return; }
+                catch (ObjectDisposedException) { return; }
+                catch (Exception) { }
             }
         }
         
-        static string Format(string entry)
-            => entry
-                .Replace("\r\n", "\u2028")
-                .Replace("\n", "\u2028");
-
         private void ConsumeAndSendEvents()
         {
             foreach (var datas in _queue.GetConsumingEnumerable())
             {
-                var entry = Encoding.UTF8.GetBytes(Format(datas.Item2) + "\n");
-                var entryLength = datas.Item1.Length + entry.Length;
-
-                // empty buffer if no enough space available
-                if (_buffer.Length - _bufferLength < entryLength)
-                {
-                    SendBufferWithRetry();
-                }
-
-                // log entry bigger than buffer
-                if (_buffer.Length < entryLength)
-                {  
-                    DoWithRetry(() => 
-                    {
-                        _connection.Send(datas.Item1, datas.Item1.Length);
-                        _connection.Send(entry, entry.Length);
-                    });
-                }
-                else
-                {
-                    Buffer(datas.Item1);
-                    Buffer(entry);
-                }
-
-                // if there are no pending items in the queue
-                // send buffer immediately
-                if(_bufferLength > 0 && _queue.Count == 0)
-                    SendBufferWithRetry();
+                DoWithRetry(datas.Item1, datas.Item2);                
             }
         }
 
-        private void SendBufferWithRetry()
-        {
-            if (_bufferLength == 0 )
-                return;
-
-            DoWithRetry(() => _connection.Send(_buffer, _bufferLength));
-            _bufferLength = 0;
-        }
-
-        private void DoWithRetry(Action action)
+        private void DoWithRetry(byte[] token, string entry)
         {
             var retry = 0;
-            while (!DoWithReconnect(action))
+            var error = (Exception)null;
+            while (!DoWithReconnect(token, entry, out  error))
             {
                 Thread.Sleep(Math.Min(1000, 100 * retry));
                 retry++;
                 if (retry >= 20)
                 {
+                    // At least try to signal that the component was unable to save
+                    // the entry. In case it is because this component fault, the error
+                    // would be recorded somewhere.
+                    error = error ?? new Exception("No error provided");
+                    DoWithReconnect(token, $"[NLog.Contrib.Targets.LogEntries] Entry Dropped because: ({error.GetType().Name}): {error.Message} \n {error.StackTrace}", out error);
                     return;
                 }
             }
         }
 
-        private void Buffer(byte[] data)
-        {
-            Array.Copy(data, 0, _buffer, _bufferLength, data.Length);
-            _bufferLength += data.Length;
-        }
-
-        private bool DoWithReconnect(Action action)
+        private bool DoWithReconnect(byte[] token, string entry, out Exception error)
         {
             var success = false;
+            error = null;
             try
             {
                 if (!_connection.IsIdleForTooLong)
                 {
-                    action();
+                    LogEntryWriter.Write(token, entry, _connection);
                     success = true;
                 }
             }
-            catch (Exception) { }
+            catch (Exception ex)
+            {
+                error = ex;
+            }
 
-            if(!success)
+            if (!success)
             {
                 Reconnect();
             }
@@ -170,13 +121,13 @@ namespace NLog.Contrib.Targets.LogEntries
             var connection = _connection;
             _connection = null;
             connection?.Dispose();
-            while (_connection == null)
+            while (_connection == null && _closed == 0)
             {
                 try
                 {
                     _connection = new LogEntriesConnection();
                 }
-                catch(Exception)
+                catch(Exception) // Unable to connect to Logentries.
                 {
                     Thread.Sleep(1000);
                 }
