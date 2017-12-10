@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Net.Security;
 using System.Net.Sockets;
-using System.Threading.Tasks;
 
 namespace NLog.Contrib.Targets.LogEntries
 {
@@ -9,9 +8,14 @@ namespace NLog.Contrib.Targets.LogEntries
     {
         const string _url = "api.logentries.com";
         const int _tokenTlsPort = 20000;
+        const double _maxIdleSeconds = 30;
 
         readonly TcpClient _socket;
         readonly SslStream _stream;
+
+        DateTime _lastActivity;
+
+        public bool IsIdleForTooLong => DateTime.Now.Subtract(_lastActivity).TotalSeconds > _maxIdleSeconds;
 
         public LogEntriesConnection()
         {
@@ -19,6 +23,7 @@ namespace NLog.Contrib.Targets.LogEntries
             ConfigureSocket(_socket);
             _stream = new SslStream(_socket.GetStream());
             _stream.AuthenticateAsClient(_url);
+            _lastActivity = DateTime.Now;
         }
 
         static void ConfigureSocket(TcpClient socket)
@@ -26,7 +31,7 @@ namespace NLog.Contrib.Targets.LogEntries
             // no naggle algorithm
             socket.NoDelay = true;
 
-            // When using the internal buffer, component buffers the data but connection
+            // When using the internal buffer, TcpClient buffers the data but connection
             // maybe already dead, so it would not be possible to retry the entry
             // in case of exception.
             socket.SendBufferSize = 0;
@@ -42,6 +47,7 @@ namespace NLog.Contrib.Targets.LogEntries
         public void Send(byte[] data, int count)
         {
             _stream.Write(data, 0, count);
+            _lastActivity = DateTime.Now;
         }
 
         public void Dispose()

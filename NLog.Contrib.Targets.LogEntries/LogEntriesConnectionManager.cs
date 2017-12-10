@@ -13,6 +13,9 @@ namespace NLog.Contrib.Targets.LogEntries
         public static LogEntriesConnectionManager Instance 
             => _instance.Value;
 
+        static readonly char[] _newLineReplacement = "\u2028".ToCharArray();
+        static readonly byte _newLineByte = (byte)'\n';
+
         readonly BlockingCollection<Tuple<byte[], string>> _queue;
         readonly Thread _thread;
         readonly byte[] _buffer;
@@ -20,7 +23,6 @@ namespace NLog.Contrib.Targets.LogEntries
         readonly Encoder _encoding;
 
         LogEntriesConnection _connection;
-        int _bufferLength = 0;
         int _closed = 0;
         
         private LogEntriesConnectionManager()
@@ -51,7 +53,6 @@ namespace NLog.Contrib.Targets.LogEntries
             {
                 _queue.CompleteAdding();
                 _thread.Join();
-                SendBufferWithRetry();
                 _connection.Dispose();
             }
         }
@@ -65,52 +66,41 @@ namespace NLog.Contrib.Targets.LogEntries
                     ConsumeAndSendEvents();
                     return;
                 }
-                catch (OperationCanceledException)
-                {
-                    return;
-                }
-                catch (ObjectDisposedException)
-                {
-                    return;
-                }
-                catch (Exception)
-                {
-                }
+                catch (OperationCanceledException) { return; }
+                catch (ObjectDisposedException) { return; }
+                catch (Exception) { }
             }
         }
-
-        static char[] _newLine = "\u2028".ToCharArray();
-
+        
         private int BufferChars(string line, int offset)
         {
             int count = 0;
             var bufferPos = 0;
+
             for (; offset < line.Length; offset++)
             {
                 if (_charBuffer.Length == bufferPos)
                     break;
 
-                if(line[offset] == '\n')
+                if(line[offset] == '\n' || line[offset] == '\r')
                 {
-                    if (_charBuffer.Length - _bufferLength < _newLine.Length)
+                    if (_charBuffer.Length - bufferPos < _newLineReplacement.Length)
                         break;
 
-                    for (int i = 0; i < _newLine.Length; i++)
+                    for (int i = 0; i < _newLineReplacement.Length; i++)
                     {
-                        _charBuffer[bufferPos++] = _newLine[i];
+                        _charBuffer[bufferPos++] = _newLineReplacement[i];
+                    }
+
+                    if (offset + 1 < line.Length && line[offset] == '\r' && line[offset] == '\n')
+                    {
+                        offset++;
+                        count++;
                     }
                 }
-                else if ( offset+1<line.Length && line[offset] == '\r' && line[offset+1] == '\n')
+                else
                 {
-                    if (_charBuffer.Length - _bufferLength < _newLine.Length)
-                        break;
-
-                    for (int i = 0; i < _newLine.Length; i++)
-                    {
-                        _charBuffer[bufferPos++] = _newLine[i];
-                    }
-                    offset++;
-                    count++;
+                    _charBuffer[bufferPos++] = line[offset];
                 }
                 count++;
             }
@@ -121,56 +111,59 @@ namespace NLog.Contrib.Targets.LogEntries
         {
             foreach (var datas in _queue.GetConsumingEnumerable())
             {
-                var encoded = 0;
-                while(encoded != datas.Item2.Length)
-                {
-                    encoded = BufferChars(datas.Item2, encoded);
-
-                    _encoding.Convert(_charBuffer, 0, encoded,  )
-
-                }
-
-                var entry = Encoding.UTF8.GetBytes(Format(datas.Item2) + "\n");
-                var entryLength = datas.Item1.Length + entry.Length;
-
-
-                
-                
-                // empty buffer if no enough space available
-                if (_buffer.Length - _bufferLength < entryLength)
-                {
-                    SendBufferWithRetry();
-                }
-
-                // log entry bigger than buffer
-                if (_buffer.Length < entryLength)
-                {  
-                    DoWithRetry(() => 
-                    {
-                        _connection.Send(datas.Item1, datas.Item1.Length);
-                        _connection.Send(entry, entry.Length);
-                    });
-                }
-                else
-                {
-                    Buffer(datas.Item1);
-                    Buffer(entry);
-                }
-
-                // if there are no pending items in the queue
-                // send buffer immediately
-                if(_bufferLength > 0 && _queue.Count == 0)
-                    SendBufferWithRetry();
+                DoWithRetry(() => SendLogEntry(datas.Item1, datas.Item2));                
             }
         }
 
-        private void SendBufferWithRetry()
+        private void SendLogEntry(byte[] token, string entry)
         {
-            if (_bufferLength == 0 )
-                return;
+            Array.Copy(token, 0, _buffer, 0, token.Length);
 
-            DoWithRetry(() => _connection.Send(_buffer, _bufferLength));
-            _bufferLength = 0;
+            var buffered = token.Length;
+            var totalformatted = 0;
+            while (totalformatted != entry.Length)
+            {
+                var formatted = BufferChars(entry, totalformatted);
+                totalformatted += formatted;
+
+                var completed = false;
+                var charsUsed = 0;
+                var bytesUsed = 0;
+
+                while (!completed)
+                {
+                    _encoding.Convert(
+                                chars: _charBuffer,
+                                charIndex: charsUsed, 
+                                charCount: formatted - charsUsed, 
+                                bytes: _buffer,
+                                byteIndex: buffered,
+                                byteCount: _buffer.Length - buffered,
+                                flush: formatted == charsUsed,
+                                charsUsed: out charsUsed,
+                                bytesUsed: out bytesUsed,
+                                completed: out completed);
+
+                    buffered += bytesUsed;
+
+                    if (completed && totalformatted == entry.Length)
+                    {
+                        if(buffered < _buffer.Length)
+                        {
+                            _buffer[buffered++] = _newLineByte;
+                        }
+                        else
+                        {
+                            _connection.Send(_buffer, buffered);
+                            _buffer[0] = _newLineByte;
+                            buffered = 1;
+                        }
+                    }
+                    
+                    _connection.Send(_buffer, buffered);
+                    buffered = 0;
+                }               
+            }
         }
 
         private void DoWithRetry(Action action)
@@ -187,24 +180,25 @@ namespace NLog.Contrib.Targets.LogEntries
             }
         }
 
-        private void Buffer(byte[] data)
-        {
-            Array.Copy(data, 0, _buffer, _bufferLength, data.Length);
-            _bufferLength += data.Length;
-        }
-
         private bool DoWithReconnect(Action action)
         {
+            var success = false;
             try
             {
-                action();
-                return true;
+                if (!_connection.IsIdleForTooLong)
+                {
+                    action();
+                    success = true;
+                }
             }
-            catch (Exception)
+            catch (Exception) { }
+
+            if (!success)
             {
                 Reconnect();
-                return false;
             }
+
+            return success;
         }
 
         private void Reconnect()
