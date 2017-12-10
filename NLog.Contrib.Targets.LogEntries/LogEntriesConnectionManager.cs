@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using System.Text;
 using System.Threading;
 
 namespace NLog.Contrib.Targets.LogEntries
 {
+    // Lazy singleton
     internal sealed class LogEntriesConnectionManager
     {
         static Lazy<LogEntriesConnectionManager> _instance
@@ -13,24 +13,15 @@ namespace NLog.Contrib.Targets.LogEntries
         public static LogEntriesConnectionManager Instance 
             => _instance.Value;
 
-        static readonly char[] _newLineReplacement = "\u2028".ToCharArray();
-        static readonly byte _newLineByte = (byte)'\n';
-
         readonly BlockingCollection<Tuple<byte[], string>> _queue;
         readonly Thread _thread;
-        readonly byte[] _buffer;
-        readonly char[] _charBuffer;
-        readonly Encoder _encoding;
 
         LogEntriesConnection _connection;
         int _closed = 0;
         
         private LogEntriesConnectionManager()
         {
-            _buffer = new byte[8192];
-            _charBuffer = new char[8192];
             _queue = new BlockingCollection<Tuple<byte[], string>>(new ConcurrentQueue<Tuple<byte[], string>>(), 100000);
-            _encoding = Encoding.UTF8.GetEncoder();
             _thread = new Thread(new ThreadStart(SendEventsSafeLoop))
             {
                 IsBackground = true
@@ -72,126 +63,50 @@ namespace NLog.Contrib.Targets.LogEntries
             }
         }
         
-        private int BufferChars(string line, int offset)
-        {
-            int count = 0;
-            var bufferPos = 0;
-
-            for (; offset < line.Length; offset++)
-            {
-                if (_charBuffer.Length == bufferPos)
-                    break;
-
-                if(line[offset] == '\n' || line[offset] == '\r')
-                {
-                    if (_charBuffer.Length - bufferPos < _newLineReplacement.Length)
-                        break;
-
-                    for (int i = 0; i < _newLineReplacement.Length; i++)
-                    {
-                        _charBuffer[bufferPos++] = _newLineReplacement[i];
-                    }
-
-                    if (offset + 1 < line.Length && line[offset] == '\r' && line[offset+1] == '\n')
-                    {
-                        offset++;
-                        count++;
-                    }
-                }
-                else
-                {
-                    _charBuffer[bufferPos++] = line[offset];
-                }
-                count++;
-            }
-            return count;
-        }
-
         private void ConsumeAndSendEvents()
         {
             foreach (var datas in _queue.GetConsumingEnumerable())
             {
-                DoWithRetry(() => SendLogEntry(datas.Item1, datas.Item2));                
+                DoWithRetry(datas.Item1, datas.Item2);                
             }
         }
 
-        private void SendLogEntry(byte[] token, string entry)
-        {
-            Array.Copy(token, 0, _buffer, 0, token.Length);
-
-            var buffered = token.Length;
-            var totalformatted = 0;
-            while (totalformatted != entry.Length)
-            {
-                var formatted = BufferChars(entry, totalformatted);
-                totalformatted += formatted;
-
-                var completed = false;
-                var charsUsed = 0;
-                var bytesUsed = 0;
-
-                while (!completed)
-                {
-                    _encoding.Convert(
-                                chars: _charBuffer,
-                                charIndex: charsUsed, 
-                                charCount: formatted - charsUsed, 
-                                bytes: _buffer,
-                                byteIndex: buffered,
-                                byteCount: _buffer.Length - buffered,
-                                flush: formatted == charsUsed,
-                                charsUsed: out charsUsed,
-                                bytesUsed: out bytesUsed,
-                                completed: out completed);
-
-                    buffered += bytesUsed;
-
-                    if (completed && totalformatted == entry.Length)
-                    {
-                        if(buffered < _buffer.Length)
-                        {
-                            _buffer[buffered++] = _newLineByte;
-                        }
-                        else
-                        {
-                            _connection.Send(_buffer, buffered);
-                            _buffer[0] = _newLineByte;
-                            buffered = 1;
-                        }
-                    }
-                    
-                    _connection.Send(_buffer, buffered);
-                    buffered = 0;
-                }               
-            }
-        }
-
-        private void DoWithRetry(Action action)
+        private void DoWithRetry(byte[] token, string entry)
         {
             var retry = 0;
-            while (!DoWithReconnect(action))
+            var error = (Exception)null;
+            while (!DoWithReconnect(token, entry, out  error))
             {
                 Thread.Sleep(Math.Min(1000, 100 * retry));
                 retry++;
                 if (retry >= 20)
                 {
+                    // At least try to signal that the component was unable to save
+                    // the entry. In case it is because this component fault, the error
+                    // would be recorded somewhere.
+                    error = error ?? new Exception("No error provided");
+                    DoWithReconnect(token, $"[NLog.Contrib.Targets.LogEntries] Entry Dropped because: ({error.GetType().Name}): {error.Message} \n {error.StackTrace}", out error);
                     return;
                 }
             }
         }
 
-        private bool DoWithReconnect(Action action)
+        private bool DoWithReconnect(byte[] token, string entry, out Exception error)
         {
             var success = false;
+            error = null;
             try
             {
                 if (!_connection.IsIdleForTooLong)
                 {
-                    action();
+                    LogEntryWriter.Write(token, entry, _connection);
                     success = true;
                 }
             }
-            catch (Exception) { }
+            catch (Exception ex)
+            {
+                error = ex;
+            }
 
             if (!success)
             {
@@ -206,13 +121,13 @@ namespace NLog.Contrib.Targets.LogEntries
             var connection = _connection;
             _connection = null;
             connection?.Dispose();
-            while (_connection == null)
+            while (_connection == null && _closed == 0)
             {
                 try
                 {
                     _connection = new LogEntriesConnection();
                 }
-                catch(Exception)
+                catch(Exception) // Unable to connect to Logentries.
                 {
                     Thread.Sleep(1000);
                 }
