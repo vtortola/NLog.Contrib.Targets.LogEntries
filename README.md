@@ -14,7 +14,7 @@ Simple LogEntries NLog target that works properly on Linux.
 ## Installation
 It is available in Nuget: [NLog.Contrib.Targets.LogEntries](https://www.nuget.org/packages/NLog.Contrib.Targets.LogEntries/)
 ```
-dotnet add package NLog.Contrib.Targets.LogEntries --version 1.0.0-pre-03
+dotnet add package NLog.Contrib.Targets.LogEntries --version 1.0.0-pre-07
 ```
 
 ## Usage
