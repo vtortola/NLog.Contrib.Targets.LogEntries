@@ -1,8 +1,15 @@
 # NLog.Contrib.Targets.LogEntries
 
-Simple LogEntries NLog target that works on Linux. Uses SSL, multiplexes multiple targets (even with different tokens) into the same connection, is asynchronous and the token can be set in an environment variable as well.
+Simple LogEntries NLog target that works properly on Linux. 
 
-The [official NLog target from Rapid7](https://github.com/rapid7/le_dotnet) uses an API that is not supported in Linux [(`IOControl`)](https://msdn.microsoft.com/en-us/library/system.net.sockets.socket.iocontrol(v=vs.110).aspx).
+ - Uses SSL. 
+ - Multiplexes multiple targets (even with different tokens) into the same connection.
+ - It is asynchronous.
+ - The token can be set in an environment variable as well.
+ - The UTF8 conversion is done using a static array and not creating arrays dynamically.
+ - It does not do additional string concatenations to format the data in the expected protocol format.
+ - The [official NLog target from Rapid7](https://github.com/rapid7/le_dotnet) uses an API that is not supported in Linux [(`IOControl`)](https://msdn.microsoft.com/en-us/library/system.net.sockets.socket.iocontrol(v=vs.110).aspx). Since the `KeepAlive` is not configured to a shorter interval, in some cloud environments the connections gets half-open after [some minutes of inactivity](//github.com/rapid7/le_dotnet/blob/master/src/LogentriesCore/LeClient.cs#L96). This component assumes that if the connection has been idle for more than 30 seconds, the connection is dead and a new one is created. Since all the targets in the application are multiplexed through the same connection, this situation may never happen in production.
+
 
 ## Installation
 It is available in Nuget: [NLog.Contrib.Targets.LogEntries](https://www.nuget.org/packages/NLog.Contrib.Targets.LogEntries/)
