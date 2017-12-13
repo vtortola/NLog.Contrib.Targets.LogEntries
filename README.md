@@ -3,7 +3,7 @@
 Simple LogEntries NLog target that works properly on Linux. 
 
  - Uses SSL. 
- - Multiplexes multiple targets (even with different tokens) into the same connection.
+ - Multiplexes all targets (even with different tokens) into the same connection.
  - It is asynchronous.
  - The token can be set in an environment variable.
  - The UTF8 conversion is done using a static array and not creating arrays dynamically.
