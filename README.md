@@ -8,6 +8,7 @@ Simple LogEntries NLog target that works properly on Linux.
  - The token can be set in an environment variable.
  - The UTF8 conversion is done using a static array and not creating arrays dynamically.
  - It does not do additional string concatenations to format the data in the expected protocol format.
+ - On socket error, it does not lose the buffered serialized entry.
  - The [official NLog target from Rapid7](https://github.com/rapid7/le_dotnet) uses an API that is not supported in Linux [(`IOControl`)](https://msdn.microsoft.com/en-us/library/system.net.sockets.socket.iocontrol(v=vs.110).aspx). Since the `KeepAlive` is not configured to a shorter interval, in some cloud environments the connections gets half-open after [some minutes of inactivity](//github.com/rapid7/le_dotnet/blob/master/src/LogentriesCore/LeClient.cs#L96). This component assumes that if the connection has been idle for more than 30 seconds, the connection is dead and a new one is created. Since all the targets in the application are multiplexed through the same connection, this situation may never happen in production.
 
 
