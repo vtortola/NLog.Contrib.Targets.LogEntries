@@ -6,23 +6,19 @@ namespace NLog.Contrib.Targets.LogEntries
 {
     internal sealed class LogEntriesConnection : IDisposable
     {
-        const string _url = "api.logentries.com";
-        const int _tokenTlsPort = 20000;
-        const double _maxIdleSeconds = 30;
-
         readonly TcpClient _socket;
         readonly SslStream _stream;
 
         DateTime _lastActivity;
 
-        public bool IsIdleForTooLong => DateTime.Now.Subtract(_lastActivity).TotalSeconds > _maxIdleSeconds;
+        public bool IsIdleForTooLong => DateTime.Now.Subtract(_lastActivity).TotalSeconds > LogEntriesSettings.MaxIdleSeconds;
 
         public LogEntriesConnection()
         {
-            _socket = new TcpClient(_url, _tokenTlsPort);
+            _socket = new TcpClient(LogEntriesSettings.ApiUrl, LogEntriesSettings.TokenTlsPort);
             ConfigureSocket(_socket);
             _stream = new SslStream(_socket.GetStream());
-            _stream.AuthenticateAsClient(_url);
+            _stream.AuthenticateAsClient(LogEntriesSettings.ApiUrl);
             _lastActivity = DateTime.Now;
         }
 
@@ -31,13 +27,10 @@ namespace NLog.Contrib.Targets.LogEntries
             // no naggle algorithm
             socket.NoDelay = true;
 
-            // When using the internal buffer, TcpClient buffers the data but connection
-            // maybe already dead, so it would not be possible to retry the entry
-            // in case of exception.
-            socket.SendBufferSize = 0;
+            socket.SendBufferSize = LogEntriesSettings.SocketBufferSize;
 
             // Timeout for Socket.Send. 5 seconds because large entries takes much more time
-            socket.SendTimeout = 5000;
+            socket.SendTimeout = LogEntriesSettings.SocketTimeoutSeconds * 1000;
 
             // keep alive
             //http://tldp.org/HOWTO/TCP-Keepalive-HOWTO/usingkeepalive.html

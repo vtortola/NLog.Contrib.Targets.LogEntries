@@ -1,16 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFrameworks>netstandard2.0;net47</TargetFrameworks>
     <PackageId>NLog.Contrib.Targets.LogEntries</PackageId>
-    <PackageVersion>1.0.0</PackageVersion>
+    <PackageVersion>2.0.0-rc00</PackageVersion>
     <Authors>vtortola</Authors>
     <Description>Simple LogEntries NLog target that works on Linux. Uses SSL, multiplexes multiple targets (even with different tokens) into the same connection, is asynchronous and the token can be set in an environment variable as well.</Description>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <PackageReleaseNotes></PackageReleaseNotes>
     <Copyright>MIT Licence</Copyright>
     <PackageTags>NLog LogEntries Docker Linux</PackageTags>
-    <Version>1.0.0</Version>
+    <Version>2.0.0</Version>
     <PackageProjectUrl>https://github.com/vtortola/NLog.Contrib.Targets.LogEntries</PackageProjectUrl>
     <RepositoryUrl>https://github.com/vtortola/NLog.Contrib.Targets.LogEntries</RepositoryUrl>
     <RepositoryType>GitHub</RepositoryType>
@@ -18,8 +18,8 @@
     <PackageLicenseUrl>https://opensource.org/licenses/MIT</PackageLicenseUrl>
     <PackageIconUrl>https://pbs.twimg.com/profile_images/525068492542709760/mNYt_Nwl_400x400.png</PackageIconUrl>
     <NeutralLanguage />
-    <AssemblyVersion>1.0.1.0</AssemblyVersion>
-    <FileVersion>1.0.1.0</FileVersion>
+    <AssemblyVersion>2.0.0.0</AssemblyVersion>
+    <FileVersion>2.0.0.0</FileVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -28,7 +28,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="NLog.Extensions.Logging" Version="1.0.0" />
+    <PackageReference Include="NLog.Extensions.Logging" Version="1.0.1" />
   </ItemGroup>
 
 </Project>

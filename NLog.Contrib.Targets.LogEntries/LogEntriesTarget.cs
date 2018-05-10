@@ -41,11 +41,5 @@ namespace NLog.Contrib.Targets.LogEntries
         {
             _connection.Send(_token, base.Layout.Render(logEvent));
         }
-
-        protected override void CloseTarget()
-        {
-            base.CloseTarget();
-            _connection?.Close();
-        }
     }
 }
