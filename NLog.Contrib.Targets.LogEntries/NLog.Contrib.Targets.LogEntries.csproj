@@ -1,9 +1,9 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0;net47</TargetFrameworks>
     <PackageId>NLog.Contrib.Targets.LogEntries</PackageId>
-    <PackageVersion>2.0.0-rc00</PackageVersion>
+    <PackageVersion>2.0.0</PackageVersion>
     <Authors>vtortola</Authors>
     <Description>Simple LogEntries NLog target that works on Linux. Uses SSL, multiplexes multiple targets (even with different tokens) into the same connection, is asynchronous and the token can be set in an environment variable as well.</Description>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
@@ -28,7 +28,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="NLog.Extensions.Logging" Version="1.0.1" />
+    <PackageReference Include="NLog.Extensions.Logging" Version="1.0.2" />
   </ItemGroup>
 
 </Project>
